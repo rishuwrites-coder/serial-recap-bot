@@ -4,8 +4,9 @@
     "atisundar": 2,
     "patibrahma": 3,
     "mannsundar": 4,
-    "rimjhim": 2,
-    "sohni": 1
+    "rimjhim": 3,
+    "sohni": 2,
+    "bhabhi": 1
   },
   "history": [
     {
@@ -79,6 +80,24 @@
       "time_ist": "21:54:27 IST",
       "reason": "unprocessed new episode 372 (NUO3FykAt7o)",
       "attempt": 2
+    },
+    {
+      "show": "bhabhi",
+      "time_ist": "22:06:17 IST",
+      "reason": "unprocessed new episode 46 (tFegb2TotxU)",
+      "attempt": 1
+    },
+    {
+      "show": "sohni",
+      "time_ist": "22:06:17 IST",
+      "reason": "unprocessed new episode 16 (6bEhGz3n0rs)",
+      "attempt": 2
+    },
+    {
+      "show": "rimjhim",
+      "time_ist": "22:06:17 IST",
+      "reason": "unprocessed new episode 372 (NUO3FykAt7o)",
+      "attempt": 3
     }
   ]
 }
