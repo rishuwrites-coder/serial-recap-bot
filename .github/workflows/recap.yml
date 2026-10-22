@@ -1,1 +1,183 @@
+name: serial-recaps
+on:
+  # External cron triggers (Google Apps Script / Cloudflare Worker / cron-job.org at 12:00 AM IST) use workflow_dispatch or repository_dispatch
+  repository_dispatch:
+    types: [nightly-12am, watchdog-check]
+  workflow_dispatch:
+    inputs:
+      only_show:
+        description: "Which show (all = every show, watchdog = check logs & rerun failed/missed)"
+        type: choice
+        default: all
+        options: [all, watchdog, kaisi, bhabhi, sohni, rimjhim, mannsundar, atisundar, patibrahma, ishq]
+      video_id:
+        description: "Optional: a specific Dangal TV episode video ID (e.g. JNdlYnNneKE) instead of the newest one"
+        type: string
+        default: ""
+      test_mode:
+        description: "Quick test: only 3 scenes (~5 min). Keep OFF (false) for full 2-3 min production video"
+        type: boolean
+        default: false
+      upload:
+        description: "Upload to YouTube (ON = uploads & schedules for 9 AM - 4 PM IST slots)"
+        type: boolean
+        default: true
+      publish_now:
+        description: "Publish immediately? (Keep OFF/false so videos schedule for 9,10,11,12,1,2,3,4 AM-PM IST)"
+        type: boolean
+        default: false
 
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  recap:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    if: github.event.action != 'watchdog-check' && inputs.only_show != 'watchdog'
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        show: [kaisi, bhabhi, sohni, rimjhim, mannsundar, atisundar, patibrahma, ishq]
+    env:
+      PYTHONUNBUFFERED: "1"
+    steps:
+      - id: chk
+        run: |
+          S="${{ inputs.only_show }}"
+          if [ -z "$S" ] || [ "$S" = "all" ] || [ "$S" = "${{ matrix.show }}" ]; then
+            echo "run=true" >> $GITHUB_OUTPUT
+          else
+            echo "run=false" >> $GITHUB_OUTPUT
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.chk.outputs.run == 'true'
+
+      - uses: actions/setup-python@v5
+        if: steps.chk.outputs.run == 'true'
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        if: steps.chk.outputs.run == 'true'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg fonts-noto-core libraqm0 libfribidi0 libharfbuzz0b
+          pip install -r requirements.txt
+
+      - name: Make recap (with log check & auto-retry on failure)
+        if: steps.chk.outputs.run == 'true'
+        env:
+          SHOW_KEY: ${{ matrix.show }}
+          EVENT_NAME: ${{ github.event_name }}
+          VIDEO_ID: ${{ inputs.video_id }}
+          PUBLISH_NOW: ${{ inputs.publish_now || 'false' }}
+          DO_UPLOAD: ${{ github.event_name == 'repository_dispatch' && 'true' || inputs.upload }}
+          TEST_MODE: ${{ github.event_name == 'repository_dispatch' && 'false' || inputs.test_mode }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          YT_API_KEY: ${{ secrets.YT_API_KEY }}
+          YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
+          YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
+          YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
+          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+          CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          POLLINATIONS_TOKEN: ${{ secrets.POLLINATIONS_TOKEN }}
+          UPLOAD_PRIVACY: ${{ vars.UPLOAD_PRIVACY }}
+          SERIAL_CHANNEL_NAME: ${{ vars.SERIAL_CHANNEL_NAME }}
+          SERIAL_VOICE: ${{ vars.SERIAL_VOICE }}
+          MUSIC_VOLUME: ${{ vars.MUSIC_VOLUME }}
+        run: |
+          set +e
+          for attempt in 1 2; do
+            echo "=== [${SHOW_KEY}] Run Attempt ${attempt}/2 ==="
+            git pull --rebase -q origin main 2>/dev/null || true
+            python recap/main.py
+            code=$?
+            if [ $code -eq 0 ]; then
+              echo "=== [${SHOW_KEY}] Succeeded on attempt ${attempt} ==="
+              exit 0
+            fi
+            echo "=== [${SHOW_KEY}] Attempt ${attempt} failed (exit ${code}). Inspecting status log... ==="
+            if [ -f "state/${SHOW_KEY}_status.json" ]; then
+              cat "state/${SHOW_KEY}_status.json"
+            fi
+            if [ $attempt -lt 2 ]; then
+              echo "=== [${SHOW_KEY}] Cleaning temporary files & retrying in 45s... ==="
+              rm -rf "tmp_${SHOW_KEY}"
+              sleep 45
+            fi
+          done
+          exit 1
+
+      - uses: actions/upload-artifact@v4
+        if: always() && steps.chk.outputs.run == 'true'
+        with:
+          name: recap-${{ matrix.show }}
+          path: output/
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Save state & status logs
+        if: always() && steps.chk.outputs.run == 'true'
+        run: |
+          git config user.name bot
+          git config user.email bot@users.noreply.github.com
+          git add state/ 2>/dev/null || true
+          git diff --cached --quiet && { echo "nothing to save"; exit 0; }
+          git commit -m "state ${{ matrix.show }}" || exit 0
+          for i in 1 2 3 4 5 6 7 8; do
+            git pull --rebase -q && git push && break
+            sleep $((RANDOM % 8 + 3))
+          done
+
+  watchdog:
+    name: watchdog-log-checker
+    runs-on: ubuntu-24.04
+    needs: [recap]
+    if: always()
+    timeout-minutes: 20
+    env:
+      PYTHONUNBUFFERED: "1"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install watchdog dependencies
+        run: |
+          pip install -r requirements.txt
+          git pull --rebase -q origin main || true
+
+      - name: Read logs, verify YouTube & Dangal feed, and auto-rerun failed/missed shows
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+          YT_API_KEY: ${{ secrets.YT_API_KEY }}
+          YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
+          YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
+          YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
+        run: python recap/watchdog.py
+
+      - name: Save watchdog state
+        if: always()
+        run: |
+          git config user.name bot
+          git config user.email bot@users.noreply.github.com
+          git add state/ 2>/dev/null || true
+          git diff --cached --quiet && { echo "nothing to save"; exit 0; }
+          git commit -m "watchdog state" || exit 0
+          for i in 1 2 3 4 5; do
+            git pull --rebase -q && git push && break
+            sleep $((RANDOM % 6 + 2))
+          done
