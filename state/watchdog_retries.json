@@ -6,7 +6,7 @@
     "mannsundar": 4,
     "rimjhim": 4,
     "sohni": 4,
-    "bhabhi": 3
+    "bhabhi": 4
   },
   "history": [
     {
@@ -127,6 +127,12 @@
       "show": "sohni",
       "time_ist": "22:08:10 IST",
       "reason": "unprocessed new episode 16 (6bEhGz3n0rs)",
+      "attempt": 4
+    },
+    {
+      "show": "bhabhi",
+      "time_ist": "22:08:59 IST",
+      "reason": "unprocessed new episode 46 (tFegb2TotxU)",
       "attempt": 4
     }
   ]
