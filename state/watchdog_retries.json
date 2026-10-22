@@ -4,7 +4,8 @@
     "atisundar": 2,
     "patibrahma": 3,
     "mannsundar": 4,
-    "rimjhim": 1
+    "rimjhim": 2,
+    "sohni": 1
   },
   "history": [
     {
@@ -66,6 +67,18 @@
       "time_ist": "21:32:18 IST",
       "reason": "unprocessed new episode 1765 (Hy2kqMVNzz4)",
       "attempt": 4
+    },
+    {
+      "show": "sohni",
+      "time_ist": "21:54:27 IST",
+      "reason": "unprocessed new episode 16 (6bEhGz3n0rs)",
+      "attempt": 1
+    },
+    {
+      "show": "rimjhim",
+      "time_ist": "21:54:27 IST",
+      "reason": "unprocessed new episode 372 (NUO3FykAt7o)",
+      "attempt": 2
     }
   ]
 }
