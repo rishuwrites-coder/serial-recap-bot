@@ -7,7 +7,7 @@
     "rimjhim": 4,
     "sohni": 4,
     "bhabhi": 4,
-    "kaisi": 1
+    "kaisi": 2
   },
   "history": [
     {
@@ -141,6 +141,12 @@
       "time_ist": "22:51:17 IST",
       "reason": "unprocessed new episode 94 (Que911VAEzI)",
       "attempt": 1
+    },
+    {
+      "show": "kaisi",
+      "time_ist": "23:00:05 IST",
+      "reason": "unprocessed new episode 94 (Que911VAEzI)",
+      "attempt": 2
     }
   ]
 }
